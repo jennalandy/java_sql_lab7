@@ -6,11 +6,11 @@ public class InnReservations{
 
 	public static void main(String args[]) {
 
-		try 
+		try
 		{
 			Class.forName("com.mysql.cj.jdbc.Driver");
 		}
-		catch (ClassNotFoundException e) 
+		catch (ClassNotFoundException e)
 		{
 			System.out.println(e.getMessage());
 			System.out.println("Class Not Found");
@@ -24,15 +24,15 @@ public class InnReservations{
 
 		Scanner input = new Scanner(System.in);
 		String prompt = "\nPlease choose one of the following options\n" +
-						"1: Rooms and Rates\n" + 
+						"1: Rooms and Rates\n" +
 						"2: Reservations\n" +
 						"3: Reservation Change\n" +
 						"4: Reservaton Cancellation\n" +
-						"5: Reservation Details\n" + 
+						"5: Reservation Details\n" +
 						"6: Revenue\n" +
 						"Q: Quit\n";
 
-		System.out.println("Welcome to the Inn! Here you can query information\n" + 
+		System.out.println("Welcome to the Inn! Here you can query information\n" +
 							"about the inn's rooms and reservation as well as\n" +
 							"create, change, or cancel reservations.\n");
 
@@ -41,16 +41,23 @@ public class InnReservations{
 		String nextLine = input.nextLine();
 		String[] inputLine = nextLine.split(" ");
 
-		while( !(inputLine[0].charAt(0) == 'Q' || inputLine[0].charAt(0)=='q') ) 
+		while( !(inputLine[0].charAt(0) == 'Q' || inputLine[0].charAt(0)=='q') )
 		{
-			if (inputLine[0].charAt(0) == '1') 
+			if (inputLine[0].charAt(0) == '1')
 			{
 				Queries.R1(jdbcUrl, dbUsername, dbPassword);
 			}
-
-			if (inputLine[0].charAt(0) == '3') 
+			if (inputLine[0].charAt(0) == '2')
+			{
+				Queries.R2(jdbcUrl, dbUsername, dbPassword);
+			}
+			if (inputLine[0].charAt(0) == '3')
 			{
 				Queries.R3(jdbcUrl, dbUsername, dbPassword, input);
+			}
+			if (inputLine[0].charAt(0) == '4')
+			{
+				Queries.R4(jdbcUrl, dbUsername, dbPassword);
 			}
 
 			System.out.println(prompt);
