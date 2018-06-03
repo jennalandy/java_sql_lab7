@@ -58,19 +58,7 @@ public class QueryLines {
 		    "inner join iguzmanl.lab7_rooms as rooms "+
 		    "on rooms.RoomCode = J.room " + 
 		    "order by popularity desc;";
-	
-	//R2
-   	public static String createR2PersonCountCheck(int children, int adults){
-		int sum = children + adults;
-		String total = Integer.toString(sum);
-		String query = "select RoomCode, maxOcc, (case " + 
-								   "WHEN maxOcc >= " + total + " THEN 'YES' " +
-								   "WHEN maxOcc < " + total + " THEN 'NO' " +
-								   "END) AS HasSpace " +
-								   "FROM iguzmanl.lab7_rooms;";
-		return query;
-	}
-	
+
 	// R3
 	public static String r3QueryAvail = "select " +
 		    "case " +
@@ -85,4 +73,16 @@ public class QueryLines {
 	public static String r3Update = "update iguzmanl.lab7_reservations " +
 		"set CheckIn = ?, CheckOut = ?, LastName = ?, FirstName = ?, Adults = ?, Kids = ? "+
 		"where CODE = ?;";
+	
+	//R2
+   	public static String createR2PersonCountCheck(int children, int adults){
+		int sum = children + adults;
+		String total = Integer.toString(sum);
+		String query = "select RoomCode, maxOcc, (case " + 
+								   "WHEN maxOcc >= " + total + " THEN 'YES' " +
+								   "WHEN maxOcc < " + total + " THEN 'NO' " +
+								   "END) AS HasSpace " +
+								   "FROM iguzmanl.lab7_rooms;";
+		return query;
+	}
 }

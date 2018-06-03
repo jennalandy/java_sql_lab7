@@ -62,6 +62,10 @@ public class InnReservations{
 			{
 				Queries.R4(jdbcUrl, dbUsername, dbPassword);
 			}
+			if (inputLine.charAt(0) == '5')
+			{
+				Queries.R5(jdbcUrl, dbUsername, dbPassword, input);
+			}
 
 			System.out.println(prompt);
 			inputLine = input.nextLine();
