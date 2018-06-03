@@ -38,31 +38,37 @@ public class InnReservations{
 
 		System.out.println(prompt);
 
-		String nextLine = input.nextLine();
-		String[] inputLine = nextLine.split(" ");
-
-		while( !(inputLine[0].charAt(0) == 'Q' || inputLine[0].charAt(0)=='q') )
+		String inputLine = input.nextLine();
+		if (inputLine.equals(""))
 		{
-			if (inputLine[0].charAt(0) == '1')
+			inputLine = " ";
+		}
+
+		while( !(inputLine.charAt(0) == 'Q' || inputLine.charAt(0)=='q') )
+		{
+			if (inputLine.charAt(0) == '1')
 			{
 				Queries.R1(jdbcUrl, dbUsername, dbPassword);
 			}
-			if (inputLine[0].charAt(0) == '2')
+			if (inputLine.charAt(0) == '2')
 			{
 				Queries.R2(jdbcUrl, dbUsername, dbPassword);
 			}
-			if (inputLine[0].charAt(0) == '3')
+			if (inputLine.charAt(0) == '3')
 			{
 				Queries.R3(jdbcUrl, dbUsername, dbPassword, input);
 			}
-			if (inputLine[0].charAt(0) == '4')
+			if (inputLine.charAt(0) == '4')
 			{
 				Queries.R4(jdbcUrl, dbUsername, dbPassword);
 			}
 
 			System.out.println(prompt);
-			nextLine = input.nextLine();
-			inputLine = nextLine.split(" ");
+			inputLine = input.nextLine();
+			if (inputLine.equals(""))
+			{
+				inputLine = " ";
+			}
 		}
 
 		System.out.println("Goodbye!");
