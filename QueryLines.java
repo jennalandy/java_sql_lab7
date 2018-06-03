@@ -58,7 +58,8 @@ public class QueryLines {
 		    "inner join iguzmanl.lab7_rooms as rooms "+
 		    "on rooms.RoomCode = J.room " + 
 		    "order by popularity desc;";
-
+	
+	//R2
    	public static String createR2PersonCountCheck(int children, int adults){
 		int sum = children + adults;
 		String total = Integer.toString(sum);
@@ -69,4 +70,19 @@ public class QueryLines {
 								   "FROM iguzmanl.lab7_rooms;";
 		return query;
 	}
+	
+	// R3
+	public static String r3QueryAvail = "select " +
+		    "case " +
+		        "when exists (select * from iguzmanl.lab7_reservations " +
+		                        "where room = ? "+
+		                        "and Checkout between " +
+		                        "? and ?) " +
+		        	"then 0 " +
+		    	"else 1 "+
+		    "end as available;";
+
+	public static String r3Update = "update iguzmanl.lab7_reservations " +
+		"set CheckIn = ?, CheckOut = ?, LastName = ?, FirstName = ?, Adults = ?, Kids = ? "+
+		"where CODE = ?;";
 }
