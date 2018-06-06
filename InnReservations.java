@@ -32,7 +32,7 @@ public class InnReservations{
 						"6: Revenue\n" +
 						"Q: Quit\n";
 
-		System.out.println("Welcome to the Inn! Here you can query information\n" +
+		System.out.println("\nWelcome to the Inn! Here you can query information\n" +
 							"about the inn's rooms and reservation as well as\n" +
 							"create, change, or cancel reservations.\n");
 
