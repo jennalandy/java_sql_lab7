@@ -11,6 +11,7 @@ public class Queries {
 			Connection conn = DriverManager.getConnection(jdbcUrl, dbUsername, dbPassword);
 			Statement stmt = conn.createStatement();
 			ResultSet rs = stmt.executeQuery(QueryLines.r1Query);
+			System.out.println(QueryLines.r1Query);
 			System.out.println("\nRooms and Rates");
 			System.out.printf("\n%-4s | %-24s | %-4s | %-8s | %-8s | %-10s | %-10s | %-14s | %-13s\n", "Room","Room Name","Beds","Bed Type","Max Occu","Base Price","Popularity","Next Available","Last Occupied");
 			System.out.println("--------------------------------------------------" +
@@ -24,7 +25,7 @@ public class Queries {
 				 int maxOcc = rs.getInt("maxOcc");
 				 int basePrice = rs.getInt("basePrice");
 				 String decor = rs.getString("decor");
-				 Date nextAvail = rs.getDate("nextAvailable");
+				 String nextAvail = rs.getString("nextAvailable");
 				 float Pop = rs.getFloat("popularity");
 				 int occupied = rs.getInt("occupied");
 				 System.out.printf("%-4s | %-24s | %-4s | %-8s | %-1s | %-10s | %-10s | %-14s | %-8s\n", Room, RoomName, beds, bedType, maxOcc+" people", "$"+basePrice, Pop, nextAvail, occupied+" days");
@@ -161,7 +162,7 @@ public class Queries {
 		return newOcc;
 	}
 
-	public static boolean confirmAvailability(java.sql.Date newDate, java.sql.Date oldDate, int code, Connection conn, String inOrOut)
+	public static boolean confirmAvailability(java.sql.Date startDate, java.sql.Date endDate, int code, Connection conn)
 	{
 		int available = 0;
 		try 
@@ -175,22 +176,11 @@ public class Queries {
 			}
 
 			PreparedStatement getAvailability = conn.prepareStatement(QueryLines.r3QueryAvail);
-			
-
-			if (inOrOut == "in") {
-				getAvailability.setString(1, room);
-				java.sql.Date newPlusOne = new Date(newDate.getYear(),newDate.getMonth(), newDate.getDate() + 1);
-				java.sql.Date oldMinusOne = new Date(oldDate.getYear(),oldDate.getMonth(), oldDate.getDate() - 1);
-				getAvailability.setDate(2, newPlusOne);
-				getAvailability.setDate(3, oldMinusOne);
-			}
-			else {
-				getAvailability.setString(1, room);
-				java.sql.Date oldPlusOne = new Date(oldDate.getYear(),oldDate.getMonth(), oldDate.getDate() + 1);
-				java.sql.Date newMinusOne = new Date(newDate.getYear(),newDate.getMonth(), newDate.getDate() - 1);
-				getAvailability.setDate(2, oldPlusOne);
-				getAvailability.setDate(3, newMinusOne);
-			}
+			getAvailability.setString(1, room);
+			getAvailability.setInt(2, code);
+			getAvailability.setDate(3, startDate);
+			getAvailability.setDate(4, endDate);
+			getAvailability.setDate(5, startDate);
 
 			ResultSet availabilityRs = getAvailability.executeQuery();
 			if (availabilityRs.next()) {
@@ -259,18 +249,21 @@ public class Queries {
 			System.out.print("\nReservation Code: ");
 			int code = getCode(input);
 
-			PreparedStatement p = conn.prepareStatement("select * from iguzmanl.lab7_reservations where code = ?");
+			PreparedStatement p = conn.prepareStatement("select rooms.RoomName, A.* from "+
+							"(select * from iguzmanl.lab7_reservations where code = ?) as A " +
+							"inner join iguzmanl.lab7_rooms as rooms on A.room = rooms.RoomCode;");
 			p.setInt(1, code);
 			ResultSet rs = p.executeQuery();
 
 			if (rs.next()) {
 				System.out.println("\nBelow is your current reservation information\n");
-				System.out.printf("%-5s | %-9s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", "Room", "Room Name", "Check In", "Check Out", "Rate", "Last Name", "First Name", "Adults", "Kids");
+				System.out.printf("%-11s | %-22s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", "Reservation", "Room Name", "Check In", "Check Out", "Rate", "Last Name", "First Name", "Adults", "Kids");
 				System.out.println("----------------------------------------------" +
 							"----------------------------------------------" + 
-							"----------------------");
-				int Room = rs.getInt("Code");
-				String RoomName = rs.getString("Room");
+							"-----------------------------------------");
+				String RoomName = rs.getString("RoomName");
+				int Res = rs.getInt("Code");
+				String RoomCode = rs.getString("Room");
 				String StrCheckIn = rs.getString("CheckIn");
 				String StrCheckOut = rs.getString("CheckOut");
 				float Rate = rs.getFloat("Rate");
@@ -278,7 +271,7 @@ public class Queries {
 				String FirstName = rs.getString("FirstName");
 				int Adults = rs.getInt("Adults");
 				int Kids = rs.getInt("Kids");
-				System.out.printf("%-5s | %-9s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n\n", Room, RoomName, StrCheckIn, StrCheckOut, Rate, LastName, FirstName, Adults, Kids);
+				System.out.printf("%-11s | %-22s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n\n", Res, RoomName, StrCheckIn, StrCheckOut, Rate, LastName, FirstName, Adults, Kids);
 
 				System.out.println("The following prompts will allow you to update your Name, Dates, and Number of Guests");
 				System.out.println("Type your desired update or 'no change' to keep the same\n");
@@ -292,6 +285,16 @@ public class Queries {
 				else
 				{ newFirstName = FirstName; }
 
+				while(newFirstName.equals("")) {
+					System.out.println("\tYou must have a first name or 'no change'");
+					System.out.print("First Name: ");
+					line = input.nextLine();
+					if (!line.equals("no change")) 
+					{ newFirstName = line; }
+					else
+					{ newFirstName = FirstName; }
+				}
+
 				//update last name
 				System.out.print("Last Name: ");
 				line = input.nextLine();
@@ -301,24 +304,29 @@ public class Queries {
 				else
 				{ newLastName = LastName; }
 
+				while(newLastName.equals("")) {
+					System.out.println("\tYou must have a last name or 'no change'");
+					System.out.print("Last Name: ");
+					line = input.nextLine();
+					if (!line.equals("no change")) 
+					{ newLastName = line; }
+					else
+					{ newLastName = LastName; }
+				}
+
 				//update check in date
 				Date CheckIn = java.sql.Date.valueOf(StrCheckIn);
 				java.sql.Date newCheckIn = getNewDate(CheckIn, input, "in");
-				boolean availableIn = confirmAvailability(newCheckIn, CheckIn, code, conn, "in");
-				while (!availableIn) {
-					System.out.println("\tThe room is not available for check in on " + newCheckIn);
-					newCheckIn = getNewDate(CheckIn, input, "in");
-					availableIn = confirmAvailability(newCheckIn, CheckIn, code, conn, "in");
-				}
 
 				//update check out date
 				Date CheckOut = java.sql.Date.valueOf(StrCheckOut);
 				java.sql.Date newCheckOut = getNewDate(CheckOut, input, "out");
-				boolean availableOut = confirmAvailability(newCheckOut, CheckOut, code, conn, "out");
-				while (!availableOut) {
-					System.out.println("\tThe room is not available for check out on " + newCheckOut);
+
+				//confirm availability in new range
+				while (!confirmAvailability(newCheckIn, newCheckOut, code, conn)) {
+					System.out.println("\tThe room is not available between " + newCheckIn + " and " + newCheckOut);
+					newCheckIn = getNewDate(CheckIn, input, "in");
 					newCheckOut = getNewDate(CheckOut, input, "out");
-					availableOut = confirmAvailability(newCheckOut, CheckOut, code, conn, "out");
 				}
 
 				//make sure check out is after check in
@@ -328,20 +336,15 @@ public class Queries {
 					
 					//update check in date
 					newCheckIn = getNewDate(CheckIn, input, "in");
-					availableIn = confirmAvailability(newCheckIn, CheckIn, code, conn, "in");
-					while (!availableIn) {
-						System.out.println("\tThe room is not available for check in on " + newCheckIn);
-						newCheckIn = getNewDate(CheckIn, input, "in");
-						availableIn = confirmAvailability(newCheckIn, CheckIn, code, conn, "in");
-					}
 
 					//update check out date
 					newCheckOut = getNewDate(CheckOut, input, "out");
-					availableOut = confirmAvailability(newCheckOut, CheckOut, code, conn, "out");
-					while (!availableOut) {
-						System.out.println("\tThe room is not available for check out on " + newCheckOut);
+
+					//confirm availability in new range
+					while (!confirmAvailability(newCheckIn, newCheckOut, code, conn)) {
+						System.out.println("\tThe room is not available between " + newCheckIn + " and " + newCheckOut);
+						newCheckIn = getNewDate(CheckIn, input, "in");
 						newCheckOut = getNewDate(CheckOut, input, "out");
-						availableOut = confirmAvailability(newCheckOut, CheckOut, code, conn, "out");
 					}
 				}
 
@@ -366,11 +369,7 @@ public class Queries {
 					maxOcc = confirmOccupancy(newAdults + newKids, code, conn);
 				}
 
-				////int newDuration = (int)(( newCheckOut.getTime() - newCheckIn.getTime() ) / MILLSECS_PER_DAY);
-				////System.out.println(newDuration);
-
-				System.out.println("\n"+newFirstName+", "+newLastName+", "+newCheckIn+", "+newCheckOut+", "+newAdults+", "+newKids);
-			
+				
 				PreparedStatement update = conn.prepareStatement(QueryLines.r3Update);
 				update.setDate(1, java.sql.Date.valueOf(newCheckIn.toString()));
 				update.setDate(2, java.sql.Date.valueOf(newCheckOut.toString()));
@@ -379,25 +378,25 @@ public class Queries {
 				update.setInt(5, newAdults);
 				update.setInt(6, newKids);
 				update.setInt(7, code);
-				System.out.println(update);
 
 				int rowCount = update.executeUpdate();
-				System.out.println("\n"+rowCount+" Lines Affected");
 
-
-				PreparedStatement p2 = conn.prepareStatement("select * from iguzmanl.lab7_reservations where code = ?");
+				PreparedStatement p2 = conn.prepareStatement("select rooms.RoomName, A.* from "+
+							"(select * from iguzmanl.lab7_reservations where code = ?) as A " +
+							"inner join iguzmanl.lab7_rooms as rooms on A.room = rooms.RoomCode;");
 				p2.setInt(1, code);
 				ResultSet rs2 = p2.executeQuery();
 
 				if (rs2.next())
 				{
-					System.out.println("\nBelow is your current reservation information\n");
-					System.out.printf("%-5s | %-9s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", "Room", "Room Name", "Check In", "Check Out", "Rate", "Last Name", "First Name", "Adults", "Kids");
-					System.out.println("----------------------------------------------" +
-								"----------------------------------------------" + 
-								"----------------------");
-					Room = rs2.getInt("Code");
-					RoomName = rs2.getString("Room");
+					System.out.println("\nBelow is your updated reservation information\n");
+					System.out.printf("%-11s | %-22s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", "Reservation", "Room Name", "Check In", "Check Out", "Rate", "Last Name", "First Name", "Adults", "Kids");
+				System.out.println("----------------------------------------------" +
+							"----------------------------------------------" + 
+							"-----------------------------------------");
+					RoomName = rs2.getString("RoomName");
+					Res = rs2.getInt("Code");
+					RoomCode = rs2.getString("Room");
 					StrCheckIn = rs2.getString("CheckIn");
 					StrCheckOut = rs2.getString("CheckOut");
 					Rate = rs2.getFloat("Rate");
@@ -405,7 +404,7 @@ public class Queries {
 					FirstName = rs2.getString("FirstName");
 					Adults = rs2.getInt("Adults");
 					Kids = rs2.getInt("Kids");
-					System.out.printf("%-5s | %-9s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n\n", Room, RoomName, StrCheckIn, StrCheckOut, Rate, LastName, FirstName, Adults, Kids);
+					System.out.printf("%-11s | %-22s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n\n", Res, RoomName, StrCheckIn, StrCheckOut, Rate, LastName, FirstName, Adults, Kids);
 				}
 			}
 			else {
@@ -542,7 +541,7 @@ public class Queries {
 
 	public static void R5(String jdbcUrl, String dbUsername, String dbPassword, Scanner input)
 	{
-		System.out.println("Here you can search for reservations based on first and \nlast name, a range of dates, room code, and/or reservation code.");
+		System.out.println("\nHere you can search for reservations based on first and \nlast name, a range of dates, room code, and/or reservation code.");
 		System.out.println("Leave an area blank for 'Any', SQL LIKE wildcards are accepted.\n");
 
 		System.out.print("First Name: ");
@@ -606,7 +605,7 @@ public class Queries {
 
 		ArrayList<String> toFillPrep = new ArrayList<>();
 
-		String sqlStatement = "select * from iguzmanl.lab7_reservations ";
+		String sqlStatement = "select rooms.RoomName, A.* from (select * from iguzmanl.lab7_reservations ";
 		if (!firstName.equals("") || !lastName.equals("") || !strStart.equals("") || 
 			!strEnd.equals("") || !room.equals("") || !strRes.equals(""))
 		{
@@ -694,7 +693,7 @@ public class Queries {
 				sqlStatement = sqlStatement + "CODE = ? ";
 			}
 		}
-		sqlStatement = sqlStatement + ";";
+		sqlStatement = sqlStatement + ") as A inner join iguzmanl.lab7_rooms as rooms on A.Room = rooms.RoomCode;";
 
 		try
 		{
@@ -753,12 +752,13 @@ public class Queries {
 			ResultSet rs = ps.executeQuery();
 			if(rs.next())
 			{
-				System.out.printf("%-5s | %-9s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", "Room", "Room Name", "Check In", "Check Out", "Rate", "Last Name", "First Name", "Adults", "Kids");
+				System.out.printf("%-11s | %-22s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", "Reservation", "Room Name", "Check In", "Check Out", "Rate", "Last Name", "First Name", "Adults", "Kids");
 				System.out.println("----------------------------------------------" +
 								"----------------------------------------------" + 
-								"----------------------");
-				int Room;
+								"-----------------------------------------");
 				String RoomName;
+				int Res;
+				String RoomCode;
 				String StrCheckIn;
 				String StrCheckOut;
 				float Rate;
@@ -767,8 +767,9 @@ public class Queries {
 				int Adults;
 				int Kids;
 
-				Room = rs.getInt("Code");
-				RoomName = rs.getString("Room");
+				RoomName = rs.getString("RoomName");
+				Res = rs.getInt("Code");
+				RoomCode = rs.getString("Room");
 				StrCheckIn = rs.getString("CheckIn");
 				StrCheckOut = rs.getString("CheckOut");
 				Rate = rs.getFloat("Rate");
@@ -776,13 +777,14 @@ public class Queries {
 				FirstName = rs.getString("FirstName");
 				Adults = rs.getInt("Adults");
 				Kids = rs.getInt("Kids");
-				System.out.printf("%-5s | %-9s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", Room, RoomName, StrCheckIn, StrCheckOut, Rate, LastName, FirstName, Adults, Kids);
+				System.out.printf("%-11s | %-22s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", Res, RoomName, StrCheckIn, StrCheckOut, Rate, LastName, FirstName, Adults, Kids);
 				
 
 				while(rs.next())
 				{
-					Room = rs.getInt("Code");
-					RoomName = rs.getString("Room");
+					RoomName = rs.getString("RoomName");
+					Res = rs.getInt("Code");
+					RoomCode = rs.getString("Room");
 					StrCheckIn = rs.getString("CheckIn");
 					StrCheckOut = rs.getString("CheckOut");
 					Rate = rs.getFloat("Rate");
@@ -790,7 +792,7 @@ public class Queries {
 					FirstName = rs.getString("FirstName");
 					Adults = rs.getInt("Adults");
 					Kids = rs.getInt("Kids");
-					System.out.printf("%-5s | %-9s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", Room, RoomName, StrCheckIn, StrCheckOut, Rate, LastName, FirstName, Adults, Kids);
+					System.out.printf("%-11s | %-22s | %-10s | %-10s | %-6s | %-20s | %-20s | %-6s | %-4s \n", Res, RoomName, StrCheckIn, StrCheckOut, Rate, LastName, FirstName, Adults, Kids);
 				}
 			}
 			else
