@@ -1,8 +1,15 @@
 import java.sql.*;
 import java.util.Scanner;
 import java.util.ArrayList;
+import java.text.SimpleDateFormat;
+import java.util.Random;
+import java.text.SimpleDateFormat;  
+import java.util.Date;  
+import java.util.Calendar;
 
 public class Queries {
+	static ArrayList<resInfo> resArray = new ArrayList<resInfo>();
+
 
 //-----------------------------------R1---------------------------------------------------------------//
 	public static void R1(String jdbcUrl, String dbUsername, String dbPassword) {
@@ -39,14 +46,266 @@ public class Queries {
 	}
 	
 //-----------------------------------R2---------------------------------------------------------------//
+	// will keep arraylist of potential reservations if no identical match
+	private static class resInfo{
+		private String roomCode;
+		private String roomName;
+		private String checkIn;
+		private String checkOut;
+		private String bedType;
+		private int basePrice;
+	
+		public resInfo(String rCode, String rName, String cIn, String cOut, String bType, int bPrice){
+			this.roomCode = rCode;
+			this.roomName = rName;
+			this.checkIn = cIn;
+			this.checkOut = cOut;
+			this.bedType = bType;
+			this.basePrice = bPrice;
+
+		}
+		public void setStartDate(String s){
+			this.checkIn = s;
+		}
+		public void setEndDate(String s){
+			this.checkOut = s;
+		}
+		public String getRoomCode(){
+			return this.roomCode;
+		}
+		public String getRoomName(){
+			return this.roomName;
+		}
+		public String getCheckIn(){
+			return this.checkIn;
+		}
+		public String getCheckOut(){
+			return this.checkOut;
+		}
+		public String getBedType(){
+			return this.bedType;
+		}
+		public int returnBasePrice(){
+			return this.basePrice;
+		}
+	}
+
+	public static int getDateDifference(String checkIn, String checkOut, Connection conn){
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		int diff = 0; 
+		try{
+			pstmt = conn.prepareStatement("select datediff(?, ?) as diff;");
+			pstmt.setString(1,checkOut);
+			pstmt.setString(2,checkIn);
+			rs = pstmt.executeQuery();
+			rs.next();
+			diff = rs.getInt("diff");
+		}
+		catch (SQLException e){
+			System.out.println(e.getMessage());
+			System.out.println("SQL Exception Caught");
+			System.exit(1);
+		}
+		return diff;
+
+	}
+	public static void addToArray(ResultSet rs, String beginDate, String endDate){
+		resInfo r;
+		try{	
+			while (rs.next()) { 
+				String rCode = rs.getString("RoomCode");
+				String rName = rs.getString("RoomName");
+				String bType = rs.getString("bedType");
+				int bPrice = rs.getInt("basePrice");
+				r = new resInfo(rCode,rName,beginDate,endDate,bType,bPrice);
+				resArray.add(r);
+			} 
+		}
+		catch (SQLException e){
+			System.out.println(e.getMessage());
+			System.out.println("SQL Exception Caught");
+			System.exit(1);
+		}
+	}
+	public static void displayOptions(ResultSet rs, String beginDate, String endDate){
+		resInfo r;
+		int i = 0;
+		System.out.printf("\n%-14s | %-24s | %-14s | %-14s | %-14s | %-5s | %-3s\n", "RoomCode","RoomName","CheckIn","CheckOut", "BedType","BasePrice","OptionNumber");
+		System.out.println("--------------------------------------------------" +
+						"--------------------------------------------------" +
+					"-------------------");
+		try{	
+			while (rs.next()) { 
+				i++;
+				String rCode = rs.getString("RoomCode");
+				String rName = rs.getString("RoomName");
+				String bType = rs.getString("bedType");
+				int bPrice = rs.getInt("basePrice");
+				r = new resInfo(rCode,rName,beginDate,endDate,bType,bPrice);
+				resArray.add(r);
+
+				System.out.printf("%-14s | %-24s | %-14s | %-14s | %-14s | %-5s | %-3s\n", rCode,rName,beginDate,endDate,bType,bPrice,i);
+			} 
+		}
+		catch (SQLException e){
+			System.out.println(e.getMessage());
+			System.out.println("SQL Exception Caught");
+			System.exit(1);
+		}
+
+	}
+	public static void displayAlternatives(){
+		int i = 0;
+		System.out.printf("\n%-14s | %-24s | %-14s | %-14s | %-14s | %-5s | %-3s\n", "RoomCode","RoomName","CheckIn","CheckOut", "BedType","BasePrice","OptionNumber");
+		System.out.println("--------------------------------------------------" +
+						"--------------------------------------------------" +
+					"-------------------");
+		while(i < resArray.size()){
+			String rCode = resArray.get(i).getRoomCode();
+			String rName = resArray.get(i).getRoomName();
+			String bType = resArray.get(i).getBedType();
+			int bPrice = resArray.get(i).returnBasePrice();
+			String beginDate = resArray.get(i).getCheckIn();
+			String endDate = resArray.get(i).getCheckOut();
+			System.out.printf("%-14s | %-24s | %-14s | %-14s | %-14s | %-5s | %-3s\n", rCode,rName,beginDate,endDate,bType,bPrice,i);
+			i++;
+		}
+
+	}
+	public static int returnCode(Connection conn){
+		Random rand = new Random();
+
+		PreparedStatement p =  null;
+		int code = 0;
+		try{
+			while(true){
+				code = rand.nextInt(100000);
+				p = conn.prepareStatement(QueryLines.r2DoesCodeExist);
+				p.setInt(1,code);
+				ResultSet codeExists = p.executeQuery();
+				if(!codeExists.isBeforeFirst()){
+					return code;
+				}
+			}			
+		}
+		catch (SQLException e){
+			System.out.println(e.getMessage());
+			System.out.println("SQL Exception Caught");
+			System.exit(1);
+		}
+		return code;
+	}
+	public static double generateRate(String checkIn, String checkOut, int baseRate){
+		int weekDays = 0;
+		int weekEnds = 0;
+		double finalRate = 0;
+		double daysTotalRate = 0;
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		Date checkInDate = null;
+		Date checkOutDate = null;
+		try{
+			checkInDate = sdf.parse(checkIn);
+			checkOutDate = sdf.parse(checkOut);
+		}
+		catch (Exception e){
+			System.out.println(e.getMessage());
+			System.out.println("Parse Exception Caught");
+			System.exit(1);
+		}
+		Calendar startCal = Calendar.getInstance();
+		Calendar endCal = Calendar.getInstance();
+
+		startCal.setTime(checkInDate);
+		endCal.setTime(checkOutDate);
+		for(Date date = startCal.getTime() ; startCal.before(endCal); startCal.add(Calendar.DATE,1), date = startCal.getTime()){
+			Calendar day = Calendar.getInstance();
+			day.setTime(date);
+
+			if(day.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY || day.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY ){
+				weekEnds++;
+			}
+			else{
+				weekDays++;
+			} //weekend
+		}
+		daysTotalRate += (weekDays * baseRate) + (weekEnds * (1.10 * baseRate));
+		finalRate = (daysTotalRate * .18) + daysTotalRate;
+		System.out.println(weekDays + " weekdays and " + weekEnds + " weekends");
+		return finalRate;
+
+	}
+	public static void makeReservation(Connection conn, String firstName, String lastName, int numAdults, int numChildren){
+		Scanner input = new Scanner(System.in);
+		boolean askForInput = true;
+		PreparedStatement pstmt = null;
+		int selectedReservation;
+		double rate;
+		int code = returnCode(conn);
+		while(askForInput){
+			System.out.println("Please provide the reservation option number to confirm your reservation or 'cancel' to return to the main menu");
+			String ret = input.nextLine();
+			if(ret.equals("Cancel") || ret.equals("cancel")){
+				System.out.println("Returning to main menu...");
+				return;
+			}
+			try {
+				selectedReservation = Integer.parseInt(ret);
+			} 
+			catch (NumberFormatException e) {
+				System.out.println("Invalid Input");
+				continue;
+			}
+			if(selectedReservation >= 1 && selectedReservation <= resArray.size()){
+				resInfo reservation = resArray.get(selectedReservation - 1);
+				rate = generateRate(reservation.getCheckIn(), reservation.getCheckOut(), reservation.returnBasePrice());
+
+				try{
+					pstmt = conn.prepareStatement(QueryLines.r2Insert);
+					pstmt.setInt(1,code);
+					pstmt.setString(2,reservation.getRoomCode());
+					pstmt.setString(3,reservation.getCheckIn());
+					pstmt.setString(4,reservation.getCheckOut());
+					pstmt.setDouble(5, rate); //TODO: generate rate
+					pstmt.setString(6,lastName);
+					pstmt.setString(7,firstName);
+					pstmt.setInt(8,numAdults);
+					pstmt.setInt(9,numChildren);
+					pstmt.executeUpdate();
+				}
+				catch (SQLException e){
+					System.out.println(e.getMessage());
+					System.out.println("SQL Exception Caught");
+					System.exit(1);
+				}
+
+
+				System.out.println("Reservation Confirmation");
+				System.out.printf("\n%-14s | %-14s | %-14s | %-24s | %-14s | %-14s | %-14s | %-14s | %-14s | %-14s\n", "FirstName", "LastName", "RoomCode","RoomName","CheckIn","CheckOut", "BedType", "Adults", "Children", "Cost of Stay");
+				System.out.println("--------------------------------------------------" +
+						"--------------------------------------------------" +
+					"-------------------");
+				System.out.printf("\n%-14s | %-14s | %-14s | %-24 | %-14s | %-14s | %-14s | %-14s | %-14s | %-14s\n", firstName,lastName,reservation.getRoomCode(),reservation.getRoomName(),reservation.getCheckIn(),reservation.getCheckOut(),reservation.getBedType(),numAdults, numChildren, rate);
+
+				return;
+			}
+			else{
+				System.out.println("Please choose a valid reservation option that is listed");
+				continue;
+			}
+		}
+
+	}
 	public static void R2(String jdbcUrl, String dbUsername, String dbPassword) {
 		try
 		{
+			resArray.clear();
+			int status = 0; // 0 = Any, 1 = with preference
 			Connection conn = DriverManager.getConnection(jdbcUrl, dbUsername, dbPassword);
 			Statement stmt = conn.createStatement();
 
-			String firstName, lastName, roomCode, beginDate, endDate;
-			int numChildren, numAdults;
+			String firstName, lastName, roomCode, beginDate, bedType, endDate;
+			int numChildren, numAdults ,daysApart;
 			Scanner input = new Scanner(System.in);
 
 			System.out.println("Please Provide the Following Information \n");
@@ -59,6 +318,9 @@ public class Queries {
 			System.out.println("Room code to indicate the specific room desired (or 'Any' to indicate no preference): ");
 			roomCode = input.nextLine();
 
+			System.out.println("Preferred Bed Type (or 'Any' to indicate no preference): ");
+			bedType = input.nextLine();
+
 			System.out.println("Begin date of stay (YYYY-MM-DD): ");
 			beginDate = input.nextLine();
 
@@ -70,9 +332,21 @@ public class Queries {
 			System.out.println("Number of adults");
 			numAdults = input.nextInt();
 
+			daysApart = getDateDifference( beginDate,  endDate,  conn);
+			//generateRate(beginDate,endDate);
+
+			//check if any rooms have the capacity
+			ResultSet maxCheck = stmt.executeQuery(QueryLines.r2MaxOccCheck);
+			maxCheck.next();
+			if((numChildren+numAdults) > maxCheck.getInt("maximum")){
+				System.out.println("Your requested person count exceeds the maximum capacity of all our rooms");
+				return;
+			}
 			String personCheckQuery = QueryLines.createR2PersonCountCheck(numChildren,numAdults);
 			ResultSet countCheck = stmt.executeQuery(personCheckQuery);
-
+			PreparedStatement pstmt = null;
+			ResultSet rs;
+			//notify users of rooms that don't meet the capacity
 			while(countCheck.next()){
 				String code = countCheck.getString("RoomCode");
 				int maxOcc = countCheck.getInt("maxOcc");
@@ -81,33 +355,114 @@ public class Queries {
 					System.out.println("Your requested person count exceeds the maximum capacity of room " + code);
 				}
 			}
+			//select which query to run
+			if(roomCode.equals("Any") && bedType.equals("Any")){
+				pstmt = conn.prepareStatement(QueryLines.r2Any);
+				pstmt.setString(1,beginDate);
+				pstmt.setString(2,endDate);
+				pstmt.setInt(3,(numChildren + numAdults));
+				status = 0;
+				rs = pstmt.executeQuery();
 
+			}
+			else if(roomCode.equals("Any")){
+				pstmt = conn.prepareStatement(QueryLines.r2Bed);
+				pstmt.setString(1,beginDate);
+				pstmt.setString(2,endDate);
+				pstmt.setInt(3,(numChildren + numAdults));
+				pstmt.setString(4,bedType);
+				status = 1;
+				rs = pstmt.executeQuery();
 
-			// System.out.println("Reservation details: FirstName" + firstName + "\nlastName" + lastName + "\nroomCode" + roomCode);
-			// System.out.println("\nBeginDate: " + beginDate + "\nendDate" + endDate + "\nChildren:" + numChildren + "\nAdults: " + numAdults);
+			}
+			else if(bedType.equals("Any")){
+				pstmt = conn.prepareStatement(QueryLines.r2Room);
+				pstmt.setString(1,beginDate);
+				pstmt.setString(2,endDate);
+				pstmt.setInt(3,(numChildren + numAdults));
+				pstmt.setString(4,roomCode);
+				status = 1;
+				rs = pstmt.executeQuery();
 
-			//ResultSet rs = stmt.executeQuery(QueryLines.r1Query);
-			/*System.out.println("\nRooms and Rates");
-			System.out.printf("\n%-4s | %-24s | %-4s | %-8s | %-8s | %-10s | %-10s | %-14s | %-13s\n", "Room","Room Name","Beds","Bed Type","Max Occu","Base Price","Popularity","Next Available","Last Occupied");
-			System.out.println("--------------------------------------------------" +
-								"--------------------------------------------------" +
-								"-------------------");
-			while (rs.next()) {
-				 String Room = rs.getString("RoomCode");
-				 String RoomName = rs.getString("RoomName");
-				 int beds = rs.getInt("Beds");
-				 String bedType = rs.getString("bedType");
-				 int maxOcc = rs.getInt("maxOcc");
-				 int basePrice = rs.getInt("basePrice");
-				 String decor = rs.getString("decor");
-				 Date nextAvail = rs.getDate("nextAvailable");
-				 float Pop = rs.getFloat("popularity");
-				 int occupied = rs.getInt("occupied");
-				 System.out.printf("%-4s | %-24s | %-4s | %-8s | %-1s | %-10s | %-10s | %-14s | %-8s\n", Room, RoomName, beds, bedType, maxOcc+" people", "$"+basePrice, Pop, nextAvail, occupied+" days");
-			}*/
+			}
+			else{
+				pstmt = conn.prepareStatement(QueryLines.r2RoomAndBed);
+				pstmt.setString(1,beginDate);
+				pstmt.setString(2,endDate);
+				pstmt.setInt(3,(numChildren + numAdults));
+				pstmt.setString(4,bedType);
+				pstmt.setString(5,roomCode);
+				status = 1;
+				rs = pstmt.executeQuery();
+			}
+			PreparedStatement newEndStmt = null;
+			PreparedStatement getRoomInfo = null;
+			ResultSet roomSet = null;
+			ResultSet nextAvailableDates = null;
+			ResultSet newEndDate =  null;
+			resInfo r;
+			//if empty set, change parameters
+			if(!rs.isBeforeFirst()) {  //the set is empty
+				//if room or bed, change to any
+				//if already any, change date
+				while(resArray.size() < 5){
+					if(status == 1){
+						status = 0;
+						pstmt = conn.prepareStatement(QueryLines.r2Bed);
+						pstmt.setString(1,beginDate);
+						pstmt.setString(2,endDate);
+						pstmt.setInt(3,(numChildren + numAdults));
+						pstmt.setString(4,bedType);
+						status = 1;
+						rs = pstmt.executeQuery();
+						addToArray(rs, beginDate, endDate);
+					}
+					else{
+						String newCheckOut = null;
+						//get next available reservation date
+						pstmt = conn.prepareStatement(QueryLines.r2GetNextAvilable);
+						nextAvailableDates = pstmt.executeQuery();
+						//go through each room and its respective reservation date
+						while(nextAvailableDates.next()){
+							String newCheckIn = nextAvailableDates.getString("nextAvailable");
+							String newroomCode = nextAvailableDates.getString("Room");
+							//get an appropriate end date
+							newEndStmt = conn.prepareStatement(QueryLines.r2CalculateEndDate);
+							newEndStmt.setString(1,newCheckIn);
+							newEndStmt.setInt(2,daysApart);
+							newEndDate = newEndStmt.executeQuery();
+							while(newEndDate.next()){
+								newCheckOut = newEndDate.getString("new");
+							}
+							//get the rest of info about the room to add to arraylist
+							getRoomInfo = conn.prepareStatement("select * from iguzmanl.lab7_rooms where RoomCode = ?");
+							getRoomInfo.setString(1,newroomCode);
+							roomSet = getRoomInfo.executeQuery();
+							while(roomSet.next()){
+								String rName = roomSet.getString("RoomName");
+								String bType = roomSet.getString("bedType");
+								int bPrice = roomSet.getInt("basePrice");
+								if( roomSet.getInt("maxOcc") >= (numAdults + numChildren)){
+									r = new resInfo(newroomCode,rName,newCheckIn,newCheckOut,bType,bPrice);
+									r.setStartDate(newCheckIn);
+									r.setEndDate(newCheckOut);
+									resArray.add(r);
+								}
+							}
+
+						}
+					}
+				}
+				System.out.println("No exact matches were found, below are other suggestions");
+				displayAlternatives();
+				makeReservation(conn,firstName,lastName,numAdults,numChildren);
+    		}
+    		else{
+    			displayOptions(rs,beginDate, endDate);
+    			makeReservation(conn, firstName, lastName,numAdults, numChildren);
+    		}
 		}
-		catch (SQLException e)
-		{
+		catch (SQLException e){
 			System.out.println(e.getMessage());
 			System.out.println("SQL Exception Caught");
 			System.exit(1);
@@ -807,6 +1162,56 @@ public class Queries {
 		catch (Exception e)
 		{
 			System.out.println(e.getMessage());
+		}
+	}
+	
+	//-----------------------------------R6---------------------------------------------------------------//
+	public static void R6(String jdbcUrl, String dbUsername, String dbPassword) {
+		try
+		{
+			int janTotal ,febTotal, marTotal, aprTotal, mayTotal, junTotal, julyTotal, augTotal, sepTotal, octTotal, novTotal, decTotal, yearTotal;
+			yearTotal  = janTotal = febTotal = marTotal = aprTotal = mayTotal = junTotal = julyTotal = augTotal = sepTotal = octTotal = novTotal = decTotal = 0;
+			Connection conn = DriverManager.getConnection(jdbcUrl, dbUsername, dbPassword);
+			Statement stmt = conn.createStatement();
+			PreparedStatement p = conn.prepareStatement(QueryLines.r6Select);
+
+			ResultSet roomList = stmt.executeQuery(QueryLines.r6GetRooms);
+
+			System.out.println("\nMonthly Revenue Report");
+			System.out.printf("\n%-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s |\n", "Room","Jan","Feb","Mar","Apr","May","Jun","July","Aug","Sep","Oct","Nov","Dec","Total");
+			System.out.println("--------------------------------------------------" +
+								"--------------------------------------------------" +
+								"-------------------");
+			while (roomList.next()) {
+				yearTotal = 0;
+				 String room = roomList.getString("RoomCode");
+				 for(int i = 1; i <= 12; i++){
+				 	p.setString(i,room);
+				 }
+				 ResultSet totals = p.executeQuery();
+				 while(totals.next()){
+				 	janTotal = totals.getInt("Jan");
+				 	febTotal = totals.getInt("Feb");
+				 	marTotal = totals.getInt("Mar");
+				 	aprTotal = totals.getInt("Apr");
+				 	mayTotal = totals.getInt("May");
+				 	junTotal = totals.getInt("Jun");
+				 	julyTotal = totals.getInt("July");
+				 	augTotal = totals.getInt("Aug");
+				 	sepTotal = totals.getInt("Sep");
+				 	octTotal = totals.getInt("Oct");
+				 	novTotal = totals.getInt("Nov");
+				 	decTotal = totals.getInt("Dec");
+				 	yearTotal += janTotal + febTotal + marTotal + aprTotal + mayTotal + junTotal + julyTotal + sepTotal + novTotal + decTotal;
+				 }
+				 System.out.printf("\n%-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s | %-5s |\n",room,janTotal,febTotal,marTotal,aprTotal,mayTotal,junTotal,julyTotal,augTotal,sepTotal,octTotal,novTotal,decTotal,yearTotal);
+			}
+		}
+		catch (SQLException e)
+		{
+			System.out.println(e.getMessage());
+			System.out.println("SQL Exception Caught");
+			System.exit(1);
 		}
 	}
 }
