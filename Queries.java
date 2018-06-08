@@ -243,6 +243,8 @@ public class Queries {
 	{
 		try
 		{
+			System.out.println("\nReservation Change");
+			
 			Connection conn = DriverManager.getConnection(jdbcUrl, dbUsername, dbPassword);
 
 			System.out.print("\nReservation Code: ");
@@ -540,6 +542,8 @@ public class Queries {
 
 	public static void R5(String jdbcUrl, String dbUsername, String dbPassword, Scanner input)
 	{
+		System.out.println("\nReservation Details");
+		
 		System.out.println("\nHere you can search for reservations based on first and \nlast name, a range of dates, room code, and/or reservation code.");
 		System.out.println("Leave an area blank for 'Any', SQL LIKE wildcards are accepted.\n");
 
