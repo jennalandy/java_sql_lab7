@@ -66,6 +66,10 @@ public class InnReservations{
 			{
 				Queries.R5(jdbcUrl, dbUsername, dbPassword, input);
 			}
+			if (inputLine.charAt(0) == '6')
+			{
+				Queries.R6(jdbcUrl, dbUsername, dbPassword);
+			}
 
 			System.out.println(prompt);
 			inputLine = input.nextLine();
