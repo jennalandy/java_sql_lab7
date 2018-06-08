@@ -11,7 +11,6 @@ public class Queries {
 			Connection conn = DriverManager.getConnection(jdbcUrl, dbUsername, dbPassword);
 			Statement stmt = conn.createStatement();
 			ResultSet rs = stmt.executeQuery(QueryLines.r1Query);
-			System.out.println(QueryLines.r1Query);
 			System.out.println("\nRooms and Rates");
 			System.out.printf("\n%-4s | %-24s | %-4s | %-8s | %-8s | %-10s | %-10s | %-14s | %-13s\n", "Room","Room Name","Beds","Bed Type","Max Occu","Base Price","Popularity","Next Available","Last Occupied");
 			System.out.println("--------------------------------------------------" +
